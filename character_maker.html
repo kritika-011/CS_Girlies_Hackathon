@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Character Creator</title>
+</head>
+<body>
+    <div>
+        <h1>Story Character Creator</h1>
+        <p>Transform rough character ideas into story-ready personalities</p>
+
+        <div>
+            <div>
+                <label for="apiKey">Google Gemini API Key</label>
+                <input type="password" id="apiKey" placeholder="Enter your Gemini API key here..." />
+                <small>Get your free API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></small>
+            </div>
+
+            <div>
+                <label for="hfApiKey">Hugging Face API Key</label>
+                <input type="password" id="hfApiKey" placeholder="Enter your Hugging Face API key here..." />
+                <small>Get your free API key from <a href="https://huggingface.co/settings/tokens" target="_blank">Hugging Face</a></small>
+            </div>
+
+            <div>
+                <label for="worldDescription">World Description</label>
+                <textarea id="worldDescription" placeholder="World Outline: This world is set in the year 1000 in the victorian era, a steampunk society where magic and technology coexist...&#10;&#10;Places: The Grand Academy of Arcane Sciences, The Industrial Quarter with its smoking factories, The Forbidden Undercity...&#10;&#10;Rules/Magic System: Magic is channeled through crystal focuses, technology runs on steam and clockwork...&#10;&#10;Society/Culture: A rigid class system divides nobles, merchants, and workers. The Church of the Eternal Flame holds significant power..."></textarea>
+                <small>Provide a detailed world setting that your character will be part of</small>
+            </div>
+
+            <div>
+                <label for="characterIdea">Character Idea</label>
+                <textarea id="characterIdea" placeholder="Describe your character idea... Include their role in the story, personality, background, or any details that come to mind. For example: 'A young journalist who discovers a conspiracy but struggles with trust issues after being betrayed by her mentor.'"></textarea>
+                <small>Describe your character concept - they will be integrated into the world above</small>
+            </div>
+
+            <button onclick="generateCharacter()">Create Story Character</button>
+
+            <div id="loading" style="display: none;">
+                <p>Creating your character... This may take a moment.</p>
+            </div>
+        </div>
+
+        <div id="resultSection" style="display: none;">
+            <div id="characterResult"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentCharacterData = null;
+
+        async function generateCharacter() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const hfApiKey = document.getElementById('hfApiKey').value.trim();
+            const worldDescription = document.getElementById('worldDescription').value.trim();
+            const characterIdea = document.getElementById('characterIdea').value.trim();
+            
+            // Validation
+            if (!apiKey) {
+                alert('Please enter your Gemini API key.');
+                return;
+            }
+
+            if (!hfApiKey) {
+                alert('Please enter your Hugging Face API key.');
+                return;
+            }
+
+            if (!worldDescription) {
+                alert('Please provide a world description.');
+                return;
+            }
+            
+            if (!characterIdea) {
+                alert('Please describe your character idea.');
+                return;
+            }
+
+            // Show loading state
+            document.querySelector('button').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultSection').style.display = 'none';
+
+            try {
+                const result = await callGeminiAPI(apiKey, worldDescription, characterIdea);
+                
+                if (result.error) {
+                    showError(result.error);
+                } else {
+                    currentCharacterData = result;
+                    
+                    // Generate character image
+                    await generateCharacterImage(hfApiKey, result);
+                    
+                    displayCharacter(result);
+                }
+            } catch (error) {
+                showError('An unexpected error occurred: ' + error.message);
+            } finally {
+                // Hide loading state
+                document.querySelector('button').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function callGeminiAPI(apiKey, worldDescription, characterIdea) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const prompt = `You are a creative writing assistant. Create a character that fits into the provided world setting based on the character concept.
+
+**WORLD SETTING:**
+${worldDescription}
+
+**CHARACTER CONCEPT:**
+${characterIdea}
+
+CRITICAL RULES:
+- ONLY use locations, places, and elements that are EXPLICITLY mentioned in the world description
+- DO NOT create new places, organizations, or world elements
+- DO NOT add new magic systems, technologies, or rules beyond what's provided
+- Keep descriptions simple and direct
+- If the world description doesn't provide enough detail for something, keep it general
+- Focus on how the character fits into the EXISTING world, don't expand it
+
+Output ONLY a valid JSON object with no additional text before or after it.
+
+{
+  "name": "Simple character name appropriate for the world",
+  "age": "Age that fits the world's context",
+  "role_in_story": "Simple role (protagonist, antagonist, mentor, ally, etc.)",
+  "appearance": "Physical description including clothing/style that fits the world. Be specific about hair, eyes, build, distinctive features.",
+  "personality": {
+    "core_traits": ["Simple trait 1", "Simple trait 2", "Simple trait 3"],
+    "flaws_weaknesses": ["Simple flaw 1", "Simple flaw 2"],
+    "speech_mannerisms": "How they speak - accent, tone, common phrases"
+  },
+  "background": {
+    "brief_history": "Simple background using ONLY places/elements from the world description",
+    "current_situation": "Where they are now, using ONLY existing world locations",
+    "relationships": "Simple relationships - family, friends, enemies (no new organizations)"
+  },
+  "story_elements": {
+    "main_goal": "Simple, clear goal",
+    "internal_conflict": "Simple internal struggle",
+    "character_arc": "Simple character growth/change"
+  },
+  "world_connections": {
+    "affiliated_locations": "ONLY use locations explicitly mentioned in world description",
+    "cultural_background": "Simple cultural role using existing world information",
+    "occupation": "Simple job/role that fits the existing world systems"
+  }
+}`;
+
+            const payload = {
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API request failed: ${response.status} - ${errorText}`);
+                }
+
+                const responseJson = await response.json();
+                const generatedText = responseJson.candidates[0].content.parts[0].text;
+                
+                // Clean up the response text - remove any markdown formatting or extra text
+                let cleanedText = generatedText.trim();
+                
+                // Find JSON object boundaries
+                const jsonStart = cleanedText.indexOf('{');
+                const jsonEnd = cleanedText.lastIndexOf('}') + 1;
+                
+                if (jsonStart === -1 || jsonEnd === 0) {
+                    throw new Error('No valid JSON found in response');
+                }
+                
+                cleanedText = cleanedText.substring(jsonStart, jsonEnd);
+                
+                const parsedData = JSON.parse(cleanedText);
+                
+                // Validate that all required fields have meaningful content
+                const validateField = (obj, path, fieldName) => {
+                    const value = path.split('.').reduce((o, p) => o && o[p], obj);
+                    if (!value || value === 'Not specified' || value === '' || 
+                        (Array.isArray(value) && value.length === 0) ||
+                        (Array.isArray(value) && value.every(item => !item || item === 'Not specified'))) {
+                        throw new Error(`Missing or invalid data for ${fieldName}. Please try again.`);
+                    }
+                };
+                
+                // Validate all required fields
+                validateField(parsedData, 'name', 'character name');
+                validateField(parsedData, 'age', 'character age');
+                validateField(parsedData, 'appearance', 'character appearance');
+                validateField(parsedData, 'personality.core_traits', 'personality traits');
+                validateField(parsedData, 'personality.flaws_weaknesses', 'character flaws');
+                validateField(parsedData, 'background.brief_history', 'character background');
+                validateField(parsedData, 'world_connections.affiliated_locations', 'world connections');
+                
+                return parsedData;
+            } catch (error) {
+                if (error.name === 'SyntaxError') {
+                    return { error: 'Failed to parse the generated character data. Please try again.' };
+                }
+                return { error: error.message };
+            }
+        }
+
+        async function generateCharacterImage(hfApiKey, character) {
+            const modelId = "stabilityai/stable-diffusion-xl-base-1.0";
+            const apiUrl = `https://api-inference.huggingface.co/models/${modelId}`;
+            
+            // Create more detailed and specific prompt from character data
+            const appearance = safeGet(character, 'appearance', 'a person');
+            const age = safeGet(character, 'age', '');
+            const name = safeGet(character, 'name', '');
+            
+            // Extract key physical features for better accuracy
+            const ageText = age ? `${age} years old` : '';
+            const basicPrompt = `professional portrait, elegant style, ${ageText} ${appearance}`;
+            
+            // Add specific style instructions for better accuracy
+            const finalPrompt = `${basicPrompt}, realistic portrait, high quality, detailed facial features, professional lighting, clean background, photorealistic, sharp focus, detailed eyes, detailed skin texture`;
+            
+            const headers = {
+                "Authorization": `Bearer ${hfApiKey}`,
+                "Content-Type": "application/json"
+            };
+
+            const payload = {
+                "inputs": finalPrompt,
+                "parameters": {
+                    "negative_prompt": "blurry, low quality, distorted, cartoon, anime, painting, sketch, multiple people, text, watermark",
+                    "num_inference_steps": 30,
+                    "guidance_scale": 7.5
+                }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.status === 503) {
+                    currentCharacterData.imageError = "Model is currently loading, please try again in a few moments.";
+                    return;
+                }
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    currentCharacterData.imageError = `Image generation failed: ${response.status} - ${errorText}`;
+                    return;
+                }
+
+                // Check if response is actually an image
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('image')) {
+                    // If not an image, try to get the error message
+                    const errorText = await response.text();
+                    currentCharacterData.imageError = `Image generation failed: ${errorText}`;
+                    return;
+                }
+
+                // Convert response to blob and create object URL
+                const imageBlob = await response.blob();
+                const imageUrl = URL.createObjectURL(imageBlob);
+                
+                // Store image data
+                currentCharacterData.imageUrl = imageUrl;
+                currentCharacterData.imageBlob = imageBlob;
+                currentCharacterData.imagePrompt = finalPrompt;
+
+            } catch (error) {
+                currentCharacterData.imageError = `Image generation error: ${error.message}`;
+            }
+        }
+
+        // Safe access function (needed for image generation)
+        const safeGet = (obj, path, defaultValue = 'Not specified') => {
+            try {
+                return path.split('.').reduce((o, p) => o && o[p], obj) || defaultValue;
+            } catch {
+                return defaultValue;
+            }
+        };
+
+        function displayCharacter(character) {
+            // Safe array access
+            const safeArray = (arr, defaultValue = []) => {
+                return Array.isArray(arr) ? arr : defaultValue;
+            };
+
+            // Image section HTML
+            let imageSection = '';
+            if (character.imageUrl) {
+                imageSection = `
+                    <h3>Character Image</h3>
+                    <img src="${character.imageUrl}" alt="Generated character image" style="max-width: 400px; height: auto; border: 1px solid #ccc;">
+                    <br>
+                    <button onclick="downloadImage()">Download Image</button>
+                    <br><br>
+                `;
+            } else if (character.imageError) {
+                imageSection = `
+                    <h3>Character Image</h3>
+                    <p style="color: red;">Image Generation Error: ${character.imageError}</p>
+                `;
+            }
+
+            const resultHtml = `
+                <div>
+                    <h2>${safeGet(character, 'name', 'Unnamed Character')}</h2>
+                    <p><strong>Age:</strong> ${safeGet(character, 'age')} • <strong>Role:</strong> ${safeGet(character, 'role_in_story')}</p>
+
+                    ${imageSection}
+
+                    <h3>Appearance</h3>
+                    <p>${safeGet(character, 'appearance')}</p>
+
+                    <h3>Personality</h3>
+                    <p><strong>Speech/Mannerisms:</strong> ${safeGet(character, 'personality.speech_mannerisms')}</p>
+                    
+                    <p><strong>Core Traits:</strong></p>
+                    <ul>
+                        ${safeArray(character.personality?.core_traits).map(trait => `<li>${trait}</li>`).join('') || '<li>None specified</li>'}
+                    </ul>
+
+                    <p><strong>Flaws & Weaknesses:</strong></p>
+                    <ul>
+                        ${safeArray(character.personality?.flaws_weaknesses).map(flaw => `<li>${flaw}</li>`).join('') || '<li>None specified</li>'}
+                    </ul>
+
+                    <h3>Background</h3>
+                    <p><strong>History:</strong> ${safeGet(character, 'background.brief_history')}</p>
+                    <p><strong>Current Situation:</strong> ${safeGet(character, 'background.current_situation')}</p>
+                    <p><strong>Key Relationships:</strong> ${safeGet(character, 'background.relationships')}</p>
+
+                    <h3>Story Elements</h3>
+                    <p><strong>Main Goal:</strong> ${safeGet(character, 'story_elements.main_goal')}</p>
+                    <p><strong>Internal Conflict:</strong> ${safeGet(character, 'story_elements.internal_conflict')}</p>
+                    <p><strong>Character Arc:</strong> ${safeGet(character, 'story_elements.character_arc')}</p>
+
+                    <h3>World Connections</h3>
+                    <p><strong>Affiliated Locations:</strong> ${safeGet(character, 'world_connections.affiliated_locations')}</p>
+                    <p><strong>Cultural Background:</strong> ${safeGet(character, 'world_connections.cultural_background')}</p>
+                    <p><strong>Occupation:</strong> ${safeGet(character, 'world_connections.occupation')}</p>
+
+                    <button onclick="downloadCharacter()">Download Character JSON</button>
+                </div>
+            `;
+
+            document.getElementById('characterResult').innerHTML = resultHtml;
+            document.getElementById('resultSection').style.display = 'block';
+        }
+
+        function showError(errorMessage) {
+            const errorHtml = `
+                <div style="color: red; border: 1px solid red; padding: 10px;">
+                    <strong>Error:</strong> ${errorMessage}
+                </div>
+            `;
+            document.getElementById('characterResult').innerHTML = errorHtml;
+            document.getElementById('resultSection').style.display = 'block';
+        }
+
+        function downloadCharacter() {
+            if (!currentCharacterData) return;
+            
+            const dataStr = JSON.stringify(currentCharacterData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `character_${currentCharacterData.name.replace(/\s+/g, '_').toLowerCase()}.json`;
+            link.click();
+        }
+
+        function downloadImage() {
+            if (!currentCharacterData || !currentCharacterData.imageBlob) return;
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(currentCharacterData.imageBlob);
+            link.download = `character_${currentCharacterData.name.replace(/\s+/g, '_').toLowerCase()}_image.png`;
+            link.click();
+        }
+    </script>
+</body>
+</html>

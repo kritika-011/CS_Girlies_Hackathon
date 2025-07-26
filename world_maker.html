@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Generator</title>
+</head>
+<body>
+    <div>
+        <h1>World Generator</h1>
+        <p>Transform vague world ideas into rich, detailed settings with images and maps</p>
+
+        <div>
+            <div>
+                <label for="apiKey">Google Gemini API Key</label><br>
+                <input type="password" id="apiKey" placeholder="Enter your Gemini API key here..." style="width: 300px;" /><br>
+                <small>Get your free API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></small>
+            </div><br>
+
+            <div>
+                <label for="hfApiKey">Hugging Face API Key</label><br>
+                <input type="password" id="hfApiKey" placeholder="Enter your Hugging Face API key here..." style="width: 300px;" /><br>
+                <small>Get your free API key from <a href="https://huggingface.co/settings/tokens" target="_blank">Hugging Face</a></small>
+            </div><br>
+
+            <div>
+                <label for="worldIdea">World Concept</label><br>
+                <textarea id="worldIdea" placeholder="Describe your world idea..." style="width: 400px; height: 100px;"></textarea><br>
+                <small>Describe your basic world concept - it will be expanded into a full setting</small>
+            </div><br>
+
+            <button onclick="generateWorld()">Generate World</button>
+
+            <div id="loading" style="display: none;">
+                Creating your world... This may take a few moments
+            </div>
+        </div>
+
+        <div id="resultSection" style="display: none;">
+            <div id="worldResult"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentWorldData = null;
+
+        async function generateWorld() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const hfApiKey = document.getElementById('hfApiKey').value.trim();
+            const worldIdea = document.getElementById('worldIdea').value.trim();
+            
+            if (!apiKey) {
+                alert('Please enter your Gemini API key.');
+                return;
+            }
+
+            if (!hfApiKey) {
+                alert('Please enter your Hugging Face API key.');
+                return;
+            }
+
+            if (!worldIdea) {
+                alert('Please describe your world idea.');
+                return;
+            }
+
+            document.querySelector('button').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultSection').style.display = 'none';
+
+            try {
+                const result = await callGeminiAPI(apiKey, worldIdea);
+                
+                if (result.error) {
+                    showError(result.error);
+                } else {
+                    currentWorldData = result;
+                    await generateWorldImages(hfApiKey, result);
+                    generateSimpleMap(result);
+                    displayWorld(result);
+                }
+            } catch (error) {
+                showError('An unexpected error occurred: ' + error.message);
+            } finally {
+                document.querySelector('button').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function callGeminiAPI(apiKey, worldIdea) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const prompt = `Create a detailed world setting based on this concept: ${worldIdea}
+
+Output ONLY a valid JSON object with this structure:
+
+{
+  "world_name": "Creative name for the world",
+  "world_overview": "Comprehensive overview describing the world's core concept and atmosphere",
+  "places": {
+    "major_locations": [
+      {"name": "Location 1", "description": "Detailed description"},
+      {"name": "Location 2", "description": "Detailed description"},
+      {"name": "Location 3", "description": "Detailed description"}
+    ],
+    "notable_regions": "Description of broader geographic regions and terrain"
+  },
+  "magic_technology": {
+    "system_description": "How magic/technology works",
+    "common_applications": "How people use it daily",
+    "rare_powerful_aspects": "Advanced applications"
+  },
+  "society_culture": {
+    "social_structure": "How society is organized",
+    "cultural_norms": "Important customs and traditions",
+    "conflicts_tensions": "Major sources of conflict"
+  },
+  "history_lore": {
+    "founding_events": "Key historical events",
+    "recent_developments": "Current events",
+    "mysteries_legends": "Unexplained phenomena or legends"
+  },
+  "inhabitants": {
+    "dominant_groups": "Major peoples or factions",
+    "relationships": "How groups interact",
+    "notable_figures": "Important leaders or heroes"
+  },
+  "image_prompts": [
+    {"title": "Overview Scene", "prompt": "Visual description for overview image of the world"},
+    {"title": "People Scene", "prompt": "Visual description showing people walking and living in this world"}
+  ],
+  "character_maker_summary": "Concise description with key points for character creation dialogue"
+}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json" }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+
+                const responseJson = await response.json();
+                const generatedText = responseJson.candidates[0].content.parts[0].text;
+                
+                let cleanedText = generatedText.trim();
+                const jsonStart = cleanedText.indexOf('{');
+                const jsonEnd = cleanedText.lastIndexOf('}') + 1;
+                
+                if (jsonStart === -1 || jsonEnd === 0) {
+                    throw new Error('No valid JSON found in response');
+                }
+                
+                cleanedText = cleanedText.substring(jsonStart, jsonEnd);
+                const parsedData = JSON.parse(cleanedText);
+                
+                if (!parsedData.world_name || !parsedData.world_overview) {
+                    throw new Error('Missing essential world data. Please try again.');
+                }
+                
+                return parsedData;
+            } catch (error) {
+                return { error: error.message };
+            }
+        }
+
+        async function generateWorldImages(hfApiKey, world) {
+            const modelId = "stabilityai/stable-diffusion-xl-base-1.0";
+            const apiUrl = `https://api-inference.huggingface.co/models/${modelId}`;
+            
+            world.generatedImages = [];
+
+            for (let i = 0; i < world.image_prompts.length; i++) {
+                const imagePrompt = world.image_prompts[i];
+                const finalPrompt = `${imagePrompt.prompt}, high quality, detailed, fantasy art style`;
+                
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            "Authorization": `Bearer ${hfApiKey}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            "inputs": finalPrompt,
+                            "parameters": {
+                                "negative_prompt": "blurry, low quality, text, watermark",
+                                "num_inference_steps": 30
+                            }
+                        })
+                    });
+
+                    if (response.status === 503) {
+                        world.generatedImages.push({
+                            title: imagePrompt.title,
+                            error: "Model loading, try again later"
+                        });
+                        continue;
+                    }
+
+                    if (!response.ok) {
+                        world.generatedImages.push({
+                            title: imagePrompt.title,
+                            error: `Generation failed: ${response.status}`
+                        });
+                        continue;
+                    }
+
+                    const imageBlob = await response.blob();
+                    const imageUrl = URL.createObjectURL(imageBlob);
+                    
+                    world.generatedImages.push({
+                        title: imagePrompt.title,
+                        url: imageUrl
+                    });
+
+                } catch (error) {
+                    world.generatedImages.push({
+                        title: imagePrompt.title,
+                        error: `Error: ${error.message}`
+                    });
+                }
+            }
+        }
+
+        function generateSimpleMap(world) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 600;
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = '#f5f5f5';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Border
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+            // Title
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(world.world_name || 'World Map', canvas.width / 2, 35);
+
+            if (world.places && world.places.major_locations) {
+                const locations = world.places.major_locations;
+                const padding = 60;
+                const mapWidth = canvas.width - padding * 2;
+                const mapHeight = canvas.height - padding * 2 - 40;
+
+                // Generate area properties for each location
+                const areas = locations.map((location, index) => {
+                    // Deterministic random based on location name
+                    const seed = hashString(location.name);
+                    const rng = seededRandom(seed);
+                    
+                    return {
+                        name: location.name,
+                        description: location.description,
+                        width: 120 + rng() * 80,  // 120-200px width
+                        height: 80 + rng() * 60,  // 80-140px height
+                        color: getAreaColor(index, locations.length),
+                        borderColor: '#333333'
+                    };
+                });
+
+                // Position areas in a grid with some variation
+                const cols = Math.ceil(Math.sqrt(locations.length));
+                const baseAreaWidth = mapWidth / cols;
+                const baseAreaHeight = mapHeight / Math.ceil(locations.length / cols);
+
+                areas.forEach((area, index) => {
+                    const col = index % cols;
+                    const row = Math.floor(index / cols);
+                    
+                    // Base position with some randomization
+                    const seed = hashString(area.name + 'pos');
+                    const rng = seededRandom(seed);
+                    
+                    const baseX = padding + col * baseAreaWidth;
+                    const baseY = padding + 40 + row * baseAreaHeight;
+                    
+                    // Add some variation to position
+                    const x = baseX + (rng() - 0.5) * 40;
+                    const y = baseY + (rng() - 0.5) * 30;
+                    
+                    // Ensure area stays within bounds
+                    const finalX = Math.max(padding, Math.min(x, canvas.width - padding - area.width));
+                    const finalY = Math.max(padding + 40, Math.min(y, canvas.height - padding - area.height));
+                    
+                    area.x = finalX;
+                    area.y = finalY;
+                });
+
+                // Draw routes between areas first (behind areas)
+                ctx.strokeStyle = '#888888';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                
+                for (let i = 0; i < areas.length; i++) {
+                    for (let j = i + 1; j < areas.length; j++) {
+                        const area1 = areas[i];
+                        const area2 = areas[j];
+                        
+                        // Draw route between centers
+                        const x1 = area1.x + area1.width / 2;
+                        const y1 = area1.y + area1.height / 2;
+                        const x2 = area2.x + area2.width / 2;
+                        const y2 = area2.y + area2.height / 2;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.stroke();
+                    }
+                }
+                ctx.setLineDash([]); // Reset line dash
+
+                // Draw areas
+                areas.forEach((area, index) => {
+                    // Fill area
+                    ctx.fillStyle = area.color;
+                    ctx.fillRect(area.x, area.y, area.width, area.height);
+                    
+                    // Border
+                    ctx.strokeStyle = area.borderColor;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(area.x, area.y, area.width, area.height);
+                    
+                    // Area name
+                    ctx.fillStyle = '#000000';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    
+                    // Wrap text if too long
+                    const words = area.name.split(' ');
+                    if (words.length > 2) {
+                        const line1 = words.slice(0, Math.ceil(words.length / 2)).join(' ');
+                        const line2 = words.slice(Math.ceil(words.length / 2)).join(' ');
+                        ctx.fillText(line1, area.x + area.width / 2, area.y + area.height / 2 - 5);
+                        ctx.fillText(line2, area.x + area.width / 2, area.y + area.height / 2 + 15);
+                    } else {
+                        ctx.fillText(area.name, area.x + area.width / 2, area.y + area.height / 2 + 5);
+                    }
+                    
+                    // Area number
+                    ctx.font = '10px Arial';
+                    ctx.fillStyle = '#666666';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`Area ${index + 1}`, area.x + 5, area.y + 15);
+                });
+
+                // Add legend
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(10, canvas.height - 120, 200, 110);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(10, canvas.height - 120, 200, 110);
+                
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('Legend:', 15, canvas.height - 100);
+                
+                ctx.font = '10px Arial';
+                ctx.fillText('■ Areas (different sizes & colors)', 15, canvas.height - 80);
+                ctx.strokeStyle = '#888888';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(15, canvas.height - 65);
+                ctx.lineTo(35, canvas.height - 65);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillText('Routes between areas', 40, canvas.height - 60);
+                ctx.fillText('Each area represents a major location', 15, canvas.height - 40);
+                ctx.fillText('from your world setting', 15, canvas.height - 25);
+            }
+
+            world.mapDataUrl = canvas.toDataURL();
+        }
+
+        function getAreaColor(index, total) {
+            const colors = [
+                '#FFE4B5', // Moccasin
+                '#DDA0DD', // Plum
+                '#98FB98', // Pale Green
+                '#F0E68C', // Khaki
+                '#FFB6C1', // Light Pink
+                '#87CEEB', // Sky Blue
+                '#D2B48C', // Tan
+                '#F5DEB3', // Wheat
+                '#E0E0E0', // Light Gray
+                '#FFA07A', // Light Salmon
+                '#20B2AA', // Light Sea Green
+                '#9370DB'  // Medium Purple
+            ];
+            return colors[index % colors.length];
+        }
+
+        function hashString(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash);
+        }
+
+        function seededRandom(seed) {
+            let m = 0x80000000;
+            let a = 1103515245;
+            let c = 12345;
+            
+            return function() {
+                seed = (a * seed + c) % m;
+                return seed / (m - 1);
+            };
+        }
+
+        function displayWorld(world) {
+            let imagesHtml = '';
+            if (world.generatedImages && world.generatedImages.length > 0) {
+                imagesHtml = '<h2>World Images</h2>';
+                
+                world.generatedImages.forEach(img => {
+                    if (img.url) {
+                        imagesHtml += `
+                            <div>
+                                <h3>${img.title}</h3>
+                                <img src="${img.url}" alt="${img.title}" style="max-width: 400px; height: auto;" />
+                                <br><button onclick="downloadImage('${img.title}', '${img.url}')">Download</button>
+                            </div><br>
+                        `;
+                    } else if (img.error) {
+                        imagesHtml += `
+                            <div>
+                                <h3>${img.title}</h3>
+                                <div style="color: red;">Error: ${img.error}</div>
+                            </div><br>
+                        `;
+                    }
+                });
+            }
+
+            let mapHtml = '';
+            if (world.mapDataUrl) {
+                mapHtml = `
+                    <h2>World Map</h2>
+                    <img src="${world.mapDataUrl}" alt="World Map" style="border: 1px solid #000;" />
+                    <br><button onclick="downloadMap()">Download Map</button><br><br>
+                `;
+            }
+
+            const locationsHtml = world.places?.major_locations ? 
+                world.places.major_locations.map(loc => 
+                    `<p><strong>${loc.name}:</strong> ${loc.description}</p>`
+                ).join('') : '';
+
+            const resultHtml = `
+                <h1>${world.world_name || 'Generated World'}</h1>
+                
+                <h2>Overview</h2>
+                <p>${world.world_overview || 'No overview available'}</p>
+
+                <h2>Character Maker Summary</h2>
+                <div style="background-color: #f9f9f9; padding: 15px; border: 1px solid #ddd;">
+                    <p><strong>World Setting for Character Creation:</strong></p>
+                    <p>${world.character_maker_summary || 'No summary available'}</p>
+                </div>
+
+                ${imagesHtml}
+                ${mapHtml}
+
+                <h2>Major Locations</h2>
+                ${locationsHtml || '<p>No locations specified</p>'}
+
+                <h2>Notable Regions</h2>
+                <p>${world.places?.notable_regions || 'No regions specified'}</p>
+
+                <h2>Magic & Technology</h2>
+                <p><strong>System:</strong> ${world.magic_technology?.system_description || 'Not specified'}</p>
+                <p><strong>Common Uses:</strong> ${world.magic_technology?.common_applications || 'Not specified'}</p>
+                <p><strong>Advanced Applications:</strong> ${world.magic_technology?.rare_powerful_aspects || 'Not specified'}</p>
+
+                <h2>Society & Culture</h2>
+                <p><strong>Social Structure:</strong> ${world.society_culture?.social_structure || 'Not specified'}</p>
+                <p><strong>Cultural Norms:</strong> ${world.society_culture?.cultural_norms || 'Not specified'}</p>
+                <p><strong>Conflicts & Tensions:</strong> ${world.society_culture?.conflicts_tensions || 'Not specified'}</p>
+
+                <h2>History & Lore</h2>
+                <p><strong>Founding Events:</strong> ${world.history_lore?.founding_events || 'Not specified'}</p>
+                <p><strong>Recent Developments:</strong> ${world.history_lore?.recent_developments || 'Not specified'}</p>
+                <p><strong>Mysteries & Legends:</strong> ${world.history_lore?.mysteries_legends || 'Not specified'}</p>
+
+                <h2>Inhabitants</h2>
+                <p><strong>Dominant Groups:</strong> ${world.inhabitants?.dominant_groups || 'Not specified'}</p>
+                <p><strong>Relationships:</strong> ${world.inhabitants?.relationships || 'Not specified'}</p>
+                <p><strong>Notable Figures:</strong> ${world.inhabitants?.notable_figures || 'Not specified'}</p>
+
+                <button onclick="downloadWorldData()">Download Complete World Data</button>
+            `;
+
+            document.getElementById('worldResult').innerHTML = resultHtml;
+            document.getElementById('resultSection').style.display = 'block';
+        }
+
+        function showError(errorMessage) {
+            const errorHtml = `<div style="color: red; border: 1px solid red; padding: 10px;"><strong>Error:</strong> ${errorMessage}</div>`;
+            document.getElementById('worldResult').innerHTML = errorHtml;
+            document.getElementById('resultSection').style.display = 'block';
+        }
+
+        function downloadImage(title, url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${title.replace(/\s+/g, '_').toLowerCase()}.png`;
+            link.click();
+        }
+
+        function downloadMap() {
+            if (!currentWorldData || !currentWorldData.mapDataUrl) return;
+            const link = document.createElement('a');
+            link.href = currentWorldData.mapDataUrl;
+            link.download = `${currentWorldData.world_name.replace(/\s+/g, '_').toLowerCase()}_map.png`;
+            link.click();
+        }
+
+        function downloadWorldData() {
+            if (!currentWorldData) return;
+            
+            const cleanData = {
+                world_name: currentWorldData.world_name,
+                world_overview: currentWorldData.world_overview,
+                places: currentWorldData.places,
+                magic_technology: currentWorldData.magic_technology,
+                society_culture: currentWorldData.society_culture,
+                history_lore: currentWorldData.history_lore,
+                inhabitants: currentWorldData.inhabitants
+            };
+            
+            const dataStr = JSON.stringify(cleanData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${currentWorldData.world_name.replace(/\s+/g, '_').toLowerCase()}_data.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
