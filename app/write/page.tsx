@@ -252,18 +252,22 @@ export default function WritePage() {
                   Quick Tools
                 </h3>
                 <div className="space-y-3">
+                  <Link href={"/character-maker"}>
                   <Button
                     variant="ghost"
                     className="w-full justify-start text-warmGray hover:text-softBrown hover:bg-sage-50 font-serif"
                   >
                     Character Generator
                   </Button>
+                  </Link>
+                  <Link href="/world-maker">
                   <Button
                     variant="ghost"
                     className="w-full justify-start text-warmGray hover:text-softBrown hover:bg-peach-50 font-serif"
                   >
                     World Builder
                   </Button>
+                  </Link>
                   <Button
                     variant="ghost"
                     className="w-full justify-start text-warmGray hover:text-softBrown hover:bg-rose-50 font-serif"
