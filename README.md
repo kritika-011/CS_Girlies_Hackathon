@@ -31,10 +31,7 @@ Many aspiring writers have brilliant ideas but struggle with organizing their th
 - **Character Generator**: Create detailed, believable characters using Gemini AI
 - **World Builder**: Design rich, immersive story worlds with AI assistance
 
-### 📊 **Progress Tracking**
-- Daily writing goals and progress bars
-- Writing statistics and analytics
-- Story management and organization
+
 
 ## 🛠️ Tech Stack
 
