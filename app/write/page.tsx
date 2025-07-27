@@ -333,39 +333,7 @@ export default function WritePage() {
               </Card>
             )}
 
-            {/* Quick Tools */}
-            <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
-              <CardContent className="p-6">
-                <h3 className="font-serif font-semibold text-softBrown mb-4 flex items-center">
-                  <BookOpen className="w-5 h-5 mr-2" />
-                  Quick Tools
-                </h3>
-                <div className="space-y-3">
-                  <Link href={"/character-maker"}>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-warmGray hover:text-softBrown hover:bg-sage-50 font-serif"
-                  >
-                    Character Generator
-                  </Button>
-                  </Link>
-                  <Link href="/world-maker">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-warmGray hover:text-softBrown hover:bg-peach-50 font-serif"
-                  >
-                    World Builder
-                  </Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-warmGray hover:text-softBrown hover:bg-rose-50 font-serif"
-                  >
-                    Plot Outline
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+           
 
             {/* Writing Stats */}
             <Card className="bg-gradient-to-br from-peach-100 to-peach-50 border-0 shadow-lg rounded-2xl">

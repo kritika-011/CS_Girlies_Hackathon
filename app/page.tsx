@@ -26,7 +26,7 @@ export default function Home() {
             <a href="#demo" className="text-warmGray hover:text-softBrown transition-colors font-serif">
               Demo
             </a>
-            <Link href="/write">
+            <Link href="/start-writing" className="text-warmGray hover:text-softBrown transition-colors font-serif">
               <button className="bg-sage-500 hover:bg-sage-600 text-white px-6 py-2 rounded-full font-serif transition-colors shadow-md">
                 Start Writing
               </button>

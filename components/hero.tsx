@@ -27,7 +27,7 @@ export default function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <Link href="/write">
+          <Link href="/start-writing">
             <Button
               size="lg"
               className="bg-sage-500 hover:bg-sage-600 text-white px-8 py-4 rounded-full text-lg font-serif shadow-lg hover:shadow-xl transition-all duration-300"
