@@ -15,40 +15,129 @@ export default function WritePage() {
   const [currentIdea, setCurrentIdea] = useState("")
   const [grammarSuggestions, setGrammarSuggestions] = useState<string[]>([])
 
-  const handleParaphrase = async () => {
+  // const handleParaphrase = async () => {
+  //   if (!content.trim()) return
+
+  //   setIsParaphrasing(true)
+  //   // Simulate API call
+  //   setTimeout(() => {
+  //     const paraphrased = content.replace(/\b(good|nice|great)\b/gi, (match) => {
+  //       const alternatives = {
+  //         good: "excellent",
+  //         nice: "wonderful",
+  //         great: "magnificent",
+  //       }
+  //       return alternatives[match.toLowerCase() as keyof typeof alternatives] || match
+  //     })
+  //     setContent(paraphrased)
+  //     setIsParaphrasing(false)
+  //   }, 1500)
+  // }
+
+    const handleParaphrase = async () => {
     if (!content.trim()) return
 
     setIsParaphrasing(true)
-    // Simulate API call
+
+    try {
+      const response = await fetch("/api/paraphrase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: content }),
+      })
+
+      const data = await response.json()
+
+      if (data.paraphrased) {
+        setContent(data.paraphrased)
+      } else {
+        console.warn("API did not return paraphrased text. Using fallback.")
+        fallbackParaphrase()
+      }
+    } catch (error) {
+      console.error("Error calling paraphrasing API. Using fallback:", error)
+      fallbackParaphrase()
+    }
+
+    setIsParaphrasing(false)
+  }
+
+  const fallbackParaphrase = () => {
     setTimeout(() => {
       const paraphrased = content.replace(/\b(good|nice|great)\b/gi, (match) => {
-        const alternatives = {
+        const alternatives: Record<string, string> = {
           good: "excellent",
           nice: "wonderful",
           great: "magnificent",
         }
-        return alternatives[match.toLowerCase() as keyof typeof alternatives] || match
+        return alternatives[match.toLowerCase()] || match
       })
       setContent(paraphrased)
-      setIsParaphrasing(false)
-    }, 1500)
+    }, 800) // Simulate delay
   }
+
+
+  // const handleGrammarCheck = async () => {
+  //   if (!content.trim()) return
+
+  //   setIsCheckingGrammar(true)
+  //   // Simulate grammar checking
+  //   setTimeout(() => {
+  //     const suggestions = [
+  //       "Consider using 'who' instead of 'that' when referring to people",
+  //       "The sentence could be more concise",
+  //       "Check comma placement in compound sentences",
+  //     ]
+  //     setGrammarSuggestions(suggestions)
+  //     setIsCheckingGrammar(false)
+  //   }, 1000)
+  // }
 
   const handleGrammarCheck = async () => {
-    if (!content.trim()) return
+  if (!content.trim()) return
 
-    setIsCheckingGrammar(true)
-    // Simulate grammar checking
-    setTimeout(() => {
-      const suggestions = [
-        "Consider using 'who' instead of 'that' when referring to people",
-        "The sentence could be more concise",
-        "Check comma placement in compound sentences",
+  setIsCheckingGrammar(true)
+
+  try {
+    const response = await fetch("/api/grammar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: content }),
+    })
+
+    const data = await response.json()
+
+    if (data.corrected && data.corrected !== content) {
+      const diffs = [
+        `Suggested correction: "${data.corrected}"`,
+        "Consider revising highlighted grammar issues.",
       ]
-      setGrammarSuggestions(suggestions)
-      setIsCheckingGrammar(false)
-    }, 1000)
+      setGrammarSuggestions(diffs)
+    } else {
+      // If API didn't return any correction, simulate fallback
+      setTimeout(() => {
+        const suggestions = [
+          "Consider using 'who' instead of 'that' when referring to people",
+          "The sentence could be more concise",
+          "Check comma placement in compound sentences",
+        ]
+        setGrammarSuggestions(suggestions)
+        setIsCheckingGrammar(false)
+      }, 1000)
+      return
+    }
+  } catch (error) {
+    console.error("Grammar check failed:", error)
+    return
   }
+
+  setIsCheckingGrammar(false)
+}
+
 
   const handleGenerateIdea = async () => {
     setIsGeneratingIdea(true)
