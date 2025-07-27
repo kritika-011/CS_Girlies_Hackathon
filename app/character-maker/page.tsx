@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, TextArea } from "@radix-ui/themes";
 
 export default function CharacterGenerator() {
@@ -10,6 +10,19 @@ export default function CharacterGenerator() {
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
+  const [worldContext, setWorldContext] = useState<any>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("savedWorld");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setWorldContext(parsed);
+      } catch (e) {
+        console.error("Failed to parse saved world:", e);
+      }
+    }
+  }, []);
 
   const handleGenerate = async (): Promise<void> => {
     if (!apiKey || !hfApiKey || !characterPrompt) {
@@ -34,7 +47,11 @@ export default function CharacterGenerator() {
 
   const callGeminiAPI = async (key: string, prompt: string) => {
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-    const fullPrompt = `Create a detailed character based on this idea: ${prompt}\nReturn ONLY valid JSON with fields like name, age, background, traits, class, etc.`;
+    const worldInfo = worldContext
+      ? `Here is the world this character belongs to:\n\nName: ${worldContext.world_name}\nOverview: ${worldContext.world_overview}\n`
+      : "";
+
+    const fullPrompt = `${worldInfo}\nCreate a detailed character based on this idea: ${prompt}\nReturn ONLY valid JSON with fields like name, age, background, traits, class, etc.`;
 
     const payload = {
       contents: [{ parts: [{ text: fullPrompt }] }],
@@ -63,6 +80,8 @@ export default function CharacterGenerator() {
           Turn your character ideas into fully developed, richly described RPG-ready characters.
         </p>
       </div>
+
+      {/* This part can be commented to hide from the user */}
 
       <div className="grid gap-6">
         <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
@@ -116,6 +135,13 @@ export default function CharacterGenerator() {
             .
           </p>
         </div>
+
+        {worldContext && (
+          <div className="bg-white/60 p-4 rounded-lg border border-peach-200 shadow">
+            <h2 className="text-lg font-semibold">Using World: {worldContext.world_name}</h2>
+            <p className="text-sm text-warmGray">{worldContext.world_overview}</p>
+          </div>
+        )}
 
         <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
           <label htmlFor="characterPrompt" className="block font-semibold mb-2">
@@ -174,3 +200,4 @@ export default function CharacterGenerator() {
     </section>
   );
 }
+

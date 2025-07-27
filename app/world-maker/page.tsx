@@ -11,6 +11,7 @@ export default function WorldGenerator() {
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
+  const [savedWorld, setSavedWorld] = useState<any>(null)
 
   const handleGenerate = async (): Promise<void> => {
     if (!apiKey || !hfApiKey || !worldIdea) {
@@ -32,6 +33,20 @@ export default function WorldGenerator() {
       setLoading(false);
     }
   };
+
+  const handleSaveWorld = () => {
+  setSavedWorld(result)
+  // persist to localStorage if you want to make it accessible across sessions or routes
+  localStorage.setItem("savedWorld", JSON.stringify(result))
+  alert("World saved successfully!")
+  }
+
+  const handleDiscardWorld = () => {
+    setWorldIdea("")
+    setResult(null)
+    setError("")
+  }
+
 
   const callGeminiAPI = async (key: string, idea: string) => {
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
@@ -67,6 +82,9 @@ export default function WorldGenerator() {
 
       <div className="grid gap-6">
         <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
+
+
+          {/* This can be commented to hide from the user */}
           <label htmlFor="apiKey" className="block font-semibold mb-2">
             Gemini API Key
           </label>
@@ -150,13 +168,31 @@ export default function WorldGenerator() {
         </div>
 
         {error && (
-          <div className="mt-4 p-4 border border-destructive text-destructive-foreground rounded-md bg-white/80">
+          <div className="mt-4 p-4 border border-destructive text-warmGray text-destructive-foreground rounded-md bg-white/80">
             <strong>Error:</strong> {error}
           </div>
         )}
 
         {result && (
           <div className="mt-10 bg-white/80 p-6 rounded-xl shadow-xl">
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-4 mb-4">
+              <Button
+                onClick={handleDiscardWorld}
+                className="bg-red-100 text-red-600 hover:bg-red-200"
+                variant="outline"
+              >
+                Discard
+              </Button>
+              <Button
+                onClick={handleSaveWorld}
+                className="bg-sage-500 text-white hover:bg-sage-600"
+              >
+                Save World
+              </Button>
+            </div>
+
+            {/* World Details */}
             <h2 className="text-3xl font-bold mb-2">{result.world_name}</h2>
             <p className="mb-4 text-warmGray">{result.world_overview}</p>
 
