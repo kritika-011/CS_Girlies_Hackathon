@@ -2,6 +2,7 @@ import Hero from "@/components/hero"
 import WritingSection from "@/components/writing-section"
 import Features from "@/components/features"
 import Footer from "@/components/footer"
+import StorySteps from "@/components/storySteps"
 import Link from "next/link"
 
 
@@ -36,6 +37,7 @@ export default function Home() {
 
       <Hero />
       <WritingSection />
+      <StorySteps />
       <Features />
       <Footer />
     </main>

@@ -1,4 +1,5 @@
 import { Heart, Coffee, Moon } from "lucide-react"
+import Image from "next/image"
 
 export default function WritingSection() {
   return (
@@ -6,11 +7,18 @@ export default function WritingSection() {
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
         {/* Left side - Girl writing story image */}
         <div className="relative order-2 lg:order-1">
-          <div className="bg-gradient-to-br from-rose-100 to-peach-100 rounded-3xl p-8 shadow-2xl">
-            <img
+          <div className="bg-gradient-to-br from-rose-100 to-peach-100 rounded-3xl p-8 shadow-2xl justify-center flex">
+            {/* <img
               src="/placeholder.svg?height=450&width=500"
               alt="Young woman writing stories in a cozy, warm environment"
               className="w-full h-auto rounded-2xl"
+            /> */}
+            <Image
+              src="/homepageimg.jpg" 
+              alt="Description"
+              width={400}
+              height={300}
+              className="rounded-lg shadow-lg"
             />
           </div>
 

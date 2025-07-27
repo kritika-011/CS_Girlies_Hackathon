@@ -1,113 +1,289 @@
-'use client';
+// 'use client';
+
+// import { useState } from "react";
+// import { Input } from "@/components/ui/input";
+// import { TextArea } from "@radix-ui/themes";
+// import { Button } from "@radix-ui/themes";
+
+// export default function CharacterCreator() {
+//   const [apiKey, setApiKey] = useState("");
+//   const [hfApiKey, setHfApiKey] = useState("");
+//   const [worldDescription, setWorldDescription] = useState("");
+//   const [characterIdea, setCharacterIdea] = useState("");
+//   const [isLoading, setIsLoading] = useState(false);
+//   const [characterResult, setCharacterResult] = useState<any>(null);
+//   const [error, setError] = useState<string | null>(null);
+
+//   const handleSubmit = async () => {
+//     setError(null);
+//     setIsLoading(true);
+
+//     if (!apiKey || !hfApiKey || !worldDescription || !characterIdea) {
+//       setError("Please fill in all fields, including both API keys.");
+//       setIsLoading(false);
+//       return;
+//     }
+
+//     try {
+//       const result = await fetch("/api/generate-character", {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({ apiKey, hfApiKey, worldDescription, characterIdea }),
+//       });
+//       const data = await result.json();
+//       if (data.error) {
+//         setError(data.error);
+//       } else {
+//         setCharacterResult(data);
+//       }
+//     } catch (err: any) {
+//       setError("Something went wrong. Try again.");
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+
+//   return (
+//     <section className="px-6 py-20 max-w-4xl mx-auto font-serif text-softBrown bg-gradient-to-b from-transparent to-cream-100/30">
+//       <div className="text-center mb-16">
+//         <h1 className="text-5xl font-serif text-softBrown mb-4">Character Creator</h1>
+//         <p className="text-xl text-warmGray max-w-2xl mx-auto leading-relaxed">
+//           Transform rough character ideas into story-ready personalities
+//         </p>
+//       </div>
+
+//       <div className="grid gap-6">
+//         {/* World Description */}
+//         <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
+//           <label className="block font-semibold mb-2">World Description</label>
+//           <TextArea
+//             value={worldDescription}
+//             onChange={(e) => setWorldDescription(e.target.value)}
+//             placeholder="Describe your story world in detail..."
+//             className="min-h-[120px]"
+//           />
+//         </div>
+
+//         {/* Character Idea */}
+//         <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
+//           <label className="block font-semibold mb-2">Character Idea</label>
+//           <TextArea
+//             value={characterIdea}
+//             onChange={(e) => setCharacterIdea(e.target.value)}
+//             placeholder="Describe your character idea..."
+//             className="min-h-[100px]"
+//           />
+//         </div>
+
+//         {/* Submit Button */}
+//         <div className="text-center">
+//           <Button
+//             onClick={handleSubmit}
+//             disabled={isLoading}
+//             className="bg-peach-400 hover:bg-peach-500 text-white px-6 py-3 rounded-full text-lg shadow-lg transition"
+//           >
+//             {isLoading ? "Generating..." : "Create Story Character"}
+//           </Button>
+//         </div>
+
+//         {/* Error Message */}
+//         {error && (
+//           <div className="text-red-700 border border-red-300 p-4 rounded-md bg-red-100 text-center font-medium">
+//             {error}
+//           </div>
+//         )}
+
+//         {/* Character Result */}
+//         {characterResult && (
+//           <div className="mt-10">
+//             <div className="bg-white/80 p-6 rounded-xl shadow-xl space-y-3">
+//               <h2 className="text-3xl font-serif text-softBrown">{characterResult.name}</h2>
+//               <p><strong>Age:</strong> {characterResult.age}</p>
+//               <p><strong>Role:</strong> {characterResult.role_in_story}</p>
+//               <p><strong>Appearance:</strong> {characterResult.appearance}</p>
+//               {/* can add more character details here */}
+//             </div>
+//           </div>
+//         )}
+//       </div>
+//     </section>
+//   );
+// }
+
+
+"use client";
 
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { TextArea } from "@radix-ui/themes";
-import { Button } from "@radix-ui/themes";
+import { Button, TextArea } from "@radix-ui/themes";
 
-export default function CharacterCreator() {
-  const [apiKey, setApiKey] = useState("");
-  const [hfApiKey, setHfApiKey] = useState("");
-  const [worldDescription, setWorldDescription] = useState("");
-  const [characterIdea, setCharacterIdea] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [characterResult, setCharacterResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+export default function CharacterGenerator() {
+  const [apiKey, setApiKey] = useState<string>("YOUR_GEMINI_API_KEY_HERE");
+  const [hfApiKey, setHfApiKey] = useState<string>("YOUR_HUGGINGFACE_API_KEY_HERE");
+  const [characterPrompt, setCharacterPrompt] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string>("");
 
-  const handleSubmit = async () => {
-    setError(null);
-    setIsLoading(true);
-
-    if (!apiKey || !hfApiKey || !worldDescription || !characterIdea) {
-      setError("Please fill in all fields, including both API keys.");
-      setIsLoading(false);
+  const handleGenerate = async (): Promise<void> => {
+    if (!apiKey || !hfApiKey || !characterPrompt) {
+      alert("Please fill in all fields.");
       return;
     }
 
+    setLoading(true);
+    setResult(null);
+    setError("");
+
     try {
-      const result = await fetch("/api/generate-character", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, hfApiKey, worldDescription, characterIdea }),
-      });
-      const data = await result.json();
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setCharacterResult(data);
-      }
+      const characterData = await callGeminiAPI(apiKey, characterPrompt);
+      if (characterData.error) throw new Error(characterData.error);
+      setResult(characterData);
     } catch (err: any) {
-      setError("Something went wrong. Try again.");
+      setError(err.message || "Unexpected error occurred");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
+  };
+
+  const callGeminiAPI = async (key: string, prompt: string) => {
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const fullPrompt = `Create a detailed character based on this idea: ${prompt}\nReturn ONLY valid JSON with fields like name, age, background, traits, class, etc.`;
+
+    const payload = {
+      contents: [{ parts: [{ text: fullPrompt }] }],
+      generationConfig: { responseMimeType: "application/json" },
+    };
+
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}") + 1;
+    const jsonText = text.substring(start, end);
+    return JSON.parse(jsonText);
   };
 
   return (
     <section className="px-6 py-20 max-w-4xl mx-auto font-serif text-softBrown bg-gradient-to-b from-transparent to-cream-100/30">
       <div className="text-center mb-16">
-        <h1 className="text-5xl font-serif text-softBrown mb-4">Character Creator</h1>
+        <h1 className="text-5xl font-serif text-softBrown mb-4">Character Generator</h1>
         <p className="text-xl text-warmGray max-w-2xl mx-auto leading-relaxed">
-          Transform rough character ideas into story-ready personalities
+          Turn your character ideas into fully developed, richly described RPG-ready characters.
         </p>
       </div>
 
       <div className="grid gap-6">
-        {/* World Description */}
         <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
-          <label className="block font-semibold mb-2">World Description</label>
-          <TextArea
-            value={worldDescription}
-            onChange={(e) => setWorldDescription(e.target.value)}
-            placeholder="Describe your story world in detail..."
-            className="min-h-[120px]"
+          <label htmlFor="apiKey" className="block font-semibold mb-2">
+            Gemini API Key
+          </label>
+          <input
+            id="apiKey"
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            className="w-full mt-1 p-2 border border-border rounded-md bg-input text-foreground"
+            placeholder="••••••••••••••"
           />
+          <p className="text-sm text-warmGray mt-1">
+            Get your free API key from{' '}
+            <a
+              href="https://console.cloud.google.com/ai-platform"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-peach-500"
+            >
+              Google AI Studio
+            </a>
+            .
+          </p>
         </div>
 
-        {/* Character Idea */}
         <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
-          <label className="block font-semibold mb-2">Character Idea</label>
+          <label htmlFor="hfApiKey" className="block font-semibold mb-2">
+            Hugging Face API Key
+          </label>
+          <input
+            id="hfApiKey"
+            type="password"
+            value={hfApiKey}
+            onChange={(e) => setHfApiKey(e.target.value)}
+            className="w-full mt-1 p-2 border border-border rounded-md bg-input text-foreground"
+            placeholder="••••••••••••••"
+          />
+          <p className="text-sm text-warmGray mt-1">
+            Get your free API key from{' '}
+            <a
+              href="https://huggingface.co"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-peach-500"
+            >
+              Hugging Face
+            </a>
+            .
+          </p>
+        </div>
+
+        <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
+          <label htmlFor="characterPrompt" className="block font-semibold mb-2">
+            Character Concept
+          </label>
           <TextArea
-            value={characterIdea}
-            onChange={(e) => setCharacterIdea(e.target.value)}
+            id="characterPrompt"
+            value={characterPrompt}
+            onChange={(e) => setCharacterPrompt(e.target.value)}
             placeholder="Describe your character idea..."
-            className="min-h-[100px]"
+            className="h-32 w-full"
           />
+          <small className="text-sm text-warmGray">
+            Describe your base character idea - it will be expanded into a full character profile.
+          </small>
         </div>
 
-        {/* Submit Button */}
         <div className="text-center">
           <Button
-            onClick={handleSubmit}
-            disabled={isLoading}
+            onClick={handleGenerate}
+            disabled={loading}
             className="bg-peach-400 hover:bg-peach-500 text-white px-6 py-3 rounded-full text-lg shadow-lg transition"
           >
-            {isLoading ? "Generating..." : "Create Story Character"}
+            {loading ? "Generating..." : "Generate Character"}
           </Button>
+          {loading && (
+            <div className="mt-4 text-warmGray">
+              Building your character... Please wait a moment.
+            </div>
+          )}
         </div>
 
-        {/* Error Message */}
         {error && (
-          <div className="text-red-700 border border-red-300 p-4 rounded-md bg-red-100 text-center font-medium">
-            {error}
+          <div className="mt-4 p-4 border border-destructive text-destructive-foreground rounded-md bg-white/80">
+            <strong>Error:</strong> {error}
           </div>
         )}
 
-        {/* Character Result */}
-        {characterResult && (
-          <div className="mt-10">
-            <div className="bg-white/80 p-6 rounded-xl shadow-xl space-y-3">
-              <h2 className="text-3xl font-serif text-softBrown">{characterResult.name}</h2>
-              <p><strong>Age:</strong> {characterResult.age}</p>
-              <p><strong>Role:</strong> {characterResult.role_in_story}</p>
-              <p><strong>Appearance:</strong> {characterResult.appearance}</p>
-              {/* can add more character details here */}
-            </div>
+        {result && (
+          <div className="mt-10 bg-white/80 p-6 rounded-xl shadow-xl">
+            <h2 className="text-3xl font-bold mb-2">{result.name}</h2>
+            <p className="mb-2"><strong>Age:</strong> {result.age}</p>
+            <p className="mb-4 text-warmGray">{result.background}</p>
+
+            <h3 className="text-xl font-semibold mt-4 mb-1">Traits</h3>
+            <ul className="list-disc pl-5">
+              {result.traits?.map((trait: string, idx: number) => (
+                <li key={idx}>{trait}</li>
+              ))}
+            </ul>
+
+            <p className="mt-4"><strong>Class:</strong> {result.class}</p>
           </div>
         )}
       </div>
     </section>
   );
 }
-
-
