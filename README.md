@@ -78,9 +78,9 @@ Many aspiring writers have brilliant ideas but struggle with organizing their th
    cd scripts && pip install -r requirements.txt
    ```
 
-3. **Set up environment variables**
-   Create a `.env` file in the root directory:
-   ```env
+3. **Set up API KEYS**
+   in the dashboard, set your keys:
+   ```
    GEMINI_API_KEY=your_gemini_api_key
    HUGGINGFACE_API_KEY=your_huggingface_api_key
    ```
